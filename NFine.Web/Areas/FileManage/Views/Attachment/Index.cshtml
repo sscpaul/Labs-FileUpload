@@ -1,0 +1,184 @@
+﻿@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Index.cshtml";
+}
+<script>
+    $(function () {
+        gridList();
+    })
+    function gridList() {
+        var $gridList = $("#gridList");
+        $gridList.dataGrid({
+            url: "/FileManage/Attachment/GetGridJson",
+            height: $(window).height() - 128,
+            colModel: [
+                { label: '主键', name: 'F_Id', key: true, hidden: true },
+                { label: '名称', name: 'F_Name', width: 200, align: 'left' },
+                {
+                    label: '文件大小', name: 'F_Size', width: 60, align: 'right',
+                    formatter: function (cellvalue, options, rowObject) {
+                        if (cellvalue > 1024 * 1024 * 1024) {
+                            return Math.floor(cellvalue / 1024 /1024 / 1024) + 'G';
+                        } else if (cellvalue > 1024 * 1024) {
+                            return Math.floor(cellvalue / 1024 / 1024) + 'M';
+                        } else if (cellvalue > 1024) {
+                            return Math.floor(cellvalue / 1024) + 'K';
+                        } else {
+                            return cellvalue + 'B';
+                        }
+                    }
+                },
+                { label: '扩展名', name: 'F_ExtName', width: 80, align: 'center' },
+                { label: '文件路径', name: 'F_Path', width: 500, align: 'left' },
+                {
+                    label: '创建时间', name: 'F_CreatorTime', width: 80, align: 'center',
+                    formatter: "date", formatoptions: { srcformat: 'Y-m-d', newformat: 'Y-m-d' }
+                },
+                {
+                    label: '创建用户', name: 'F_CreatorUserId', width: 60, align: 'center',
+                    formatter: function (cellvalue, options, rowObject) {
+                        return top.clients.user[cellvalue] == null ? "" : top.clients.user[cellvalue].fullname;
+                    }
+                },
+                {
+                    label: ' ', name: 'F_Id', width: 40, align: 'center', resizable: false, sortable: false,
+                    formatter: function (cellvalue, options, rowObject) {
+                        return '<a href="JavaScript:void(0);" onclick="preview(\'' + cellvalue + '\');">预览</a>';
+                    }
+                },
+                { label: '备注', name: 'F_Description', width: 200, align: 'left', hidden: true }
+            ],
+            pager: "#gridPager",
+            sortname: 'F_CreatorTime desc',
+            viewrecords: true,
+            multiselect: true,
+            multiboxonly: true
+        });
+        $("#btn_search").click(function () {
+            $gridList.jqGrid('setGridParam', {
+                postData: { keyword: $("#txt_keyword").val() },
+            }).trigger('reloadGrid');
+        });
+    }
+    function btn_upload() {
+        document.all("fileUpload").click();
+    }
+    function UploadFiles() {
+        if (document.all("fileUpload").files.length > 0) {
+            if (document.all("fileUpload").files.length > 20) {
+                alert("一次最多只能上传20个文件，请重新选择！");
+                document.all("fileUpload").outerHTML = document.all("fileUpload").outerHTML;
+            }
+            else {
+                document.all("frmUpload").submit();
+            }
+        } else {
+            alert("没有选择上传文件或上传已取消！");
+        }
+    }
+    function reloadGridData() {
+        $.currentWindow().$("#gridList").trigger("reloadGrid");
+    }
+    function btn_download() {
+        var rowIds = $("#gridList").jqGrid('getGridParam', 'selarrrow');
+        if (rowIds.length == 0) {
+            alert("请选择需要下载的附件！");
+        }
+        else {
+            if (rowIds.length == 1)
+                $.download("/FileManage/Attachment/Download",
+                    { id: rowIds[0], contentType: "Application/octet-stream", inline: false },
+                    "post");
+            else
+                $.each(rowIds, function (i, item) {
+                    window.open("/FileManage/Attachment/Download?id=" + item, '下载', "height=50,width=50,top=-1000,left=-1000,toolbar=no,menubar=no,scrollbars=no,resizable=no,location=no,status=no");
+                });
+        }
+    }
+    function preview(f_id) {
+        OpenWindow("/FileManage/Attachment/Download?id=" + f_id + "&inline=true", "文件浏览", 1024, 600);
+    }
+    function btn_delete() {
+        var rowIds = $("#gridList").jqGrid('getGridParam', 'selarrrow');
+        if (rowIds.length == 0) {
+            alert("请选择需要删除的附件！");
+        }
+        else {
+            $.deleteForm({
+                url: "/FileManage/Attachment/DeleteForm",
+                param: { keyValue: rowIds.join(",") },
+                success: function () {
+                    $.currentWindow().$("#gridList").trigger("reloadGrid");
+                }
+            })
+        }
+    }
+
+    // 在一个新窗口打开指定网址
+    // 参数：
+    //     url                 打开网页的地址
+    //     name                网页名称，可为空
+    //     iWidth              弹出窗口的宽度
+    //     iHeight             弹出窗口的高度
+    //     isModel             打开窗口方式，0普通窗口，1模态窗口，2非模态窗口
+    function OpenWindow(url, name, iWidth, iHeight, isModel) {
+        var iTop = (window.screen.availHeight - 30 - iHeight) / 2;      // 获得窗口的垂直位置;
+        var iLeft = (window.screen.availWidth - 10 - iWidth) / 2;       // 获得窗口的水平位置;
+        if (isModel == 1) {
+            return window.showModalDialog(url, window, "center:no;scroll:0;status:0;help:0;resizable:1;dialogWidth:" + iWidth + "px;dialogHeight:" + iHeight + "px;dialogLeft:" + iLeft + ";dialogTop:" + iTop);
+        } else if (isModel == 2) {
+            return window.showModelessDialog(url, window, "center:no;scroll:0;status:0;help:0;resizable:1;dialogWidth:" + iWidth + "px;dialogHeight:" + iHeight + "px;dialogLeft:" + iLeft + ";dialogTop:" + iTop);
+        } else {
+            return window.open(url, name, "height=" + iHeight + ",width=" + iWidth + ",top=" + iTop + ",left=" + iLeft + ",toolbar=no,menubar=no,scrollbars=yes,resizable=yes,location=no,status=no");
+        }
+    }
+
+    // 运行本地位置的文件，可以是文档文件，是文档文件则自动调用关联程序打开文档
+    function RunFile(filePath) {
+        var ws = new ActiveXObject("WScript.Shell");
+        ws.Run(filePath);
+    }
+
+    // 运行本地位置的执行文件，只能是运行文件
+    function LaunchApp(exePath) {
+        var ws = new ActiveXObject("WScript.Shell");
+        ws.Exec(exePath);
+    }
+</script>
+
+<div class="topPanel">
+    <div class="toolbar">
+        <div class="btn-group">
+            <a class="btn btn-primary" onclick="$.reload()"><span class="glyphicon glyphicon-refresh"></span></a>
+        </div>
+        <div class="btn-group">
+            <a id="NF-upload" authorize="yes" class="btn btn-primary dropdown-text" onclick="btn_upload()"><i class="fa fa-upload"></i>上传</a>
+            <a id="NF-download" authorize="yes" class="btn btn-primary dropdown-text" onclick="btn_download()"><i class="fa fa-download"></i>下载</a>
+            <a id="NF-delete" authorize="yes" class="btn btn-primary dropdown-text" onclick="btn_delete()"><i class="fa fa-remove"></i>删除</a>
+        </div>
+        <div style="display:none;">
+            <form id="frmUpload" name="frmUpload" action="~/FileManage/Attachment/UploadForm" method="post" enctype="multipart/form-data" target="ifrUpload" >
+                <input id="fileUpload" name="fileUpload" type="file" multiple onchange="UploadFiles();"/>
+            </form>
+            <iframe id="ifrUpload" name="ifrUpload"></iframe>
+        </div>
+    </div>
+    <div class="search">
+        <table>
+            <tr>
+                <td>
+                    <div class="input-group">
+                        <input id="txt_keyword" type="text" class="form-control" placeholder="文件名" style="width: 200px;">
+                        <span class="input-group-btn">
+                            <button id="btn_search" type="button" class="btn  btn-primary"><i class="fa fa-search"></i></button>
+                        </span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+<div class="gridPanel">
+    <table id="gridList"></table>
+    <div id="gridPager"></div>
+</div>
